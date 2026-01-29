@@ -73,6 +73,14 @@ export type HookRunnerOptions = {
   logger?: HookRunnerLogger;
   /** If true, errors in hooks will be caught and logged instead of thrown */
   catchErrors?: boolean;
+  /** Optional callback for logging hook events */
+  onHookEvent?: (params: {
+    hookName: string;
+    event: unknown;
+    ctx: unknown;
+    handlerCount: number;
+    startTime: number;
+  }) => void;
 };
 
 /**
@@ -106,7 +114,23 @@ export function createHookRunner(registry: PluginRegistry, options: HookRunnerOp
     const hooks = getHooksForName(registry, hookName);
     if (hooks.length === 0) return;
 
+    const startTime = Date.now();
     logger?.debug?.(`[hooks] running ${hookName} (${hooks.length} handlers)`);
+
+    // Log hook event if callback provided
+    if (options.onHookEvent) {
+      try {
+        options.onHookEvent({
+          hookName,
+          event,
+          ctx,
+          handlerCount: hooks.length,
+          startTime,
+        });
+      } catch (err) {
+        logger?.error(`[hooks] onHookEvent callback failed: ${String(err)}`);
+      }
+    }
 
     const promises = hooks.map(async (hook) => {
       try {
@@ -137,7 +161,23 @@ export function createHookRunner(registry: PluginRegistry, options: HookRunnerOp
     const hooks = getHooksForName(registry, hookName);
     if (hooks.length === 0) return undefined;
 
+    const startTime = Date.now();
     logger?.debug?.(`[hooks] running ${hookName} (${hooks.length} handlers, sequential)`);
+
+    // Log hook event if callback provided
+    if (options.onHookEvent) {
+      try {
+        options.onHookEvent({
+          hookName,
+          event,
+          ctx,
+          handlerCount: hooks.length,
+          startTime,
+        });
+      } catch (err) {
+        logger?.error(`[hooks] onHookEvent callback failed: ${String(err)}`);
+      }
+    }
 
     let result: TResult | undefined;
 
@@ -324,6 +364,23 @@ export function createHookRunner(registry: PluginRegistry, options: HookRunnerOp
   ): PluginHookToolResultPersistResult | undefined {
     const hooks = getHooksForName(registry, "tool_result_persist");
     if (hooks.length === 0) return undefined;
+
+    const startTime = Date.now();
+
+    // Log hook event if callback provided (synchronous only)
+    if (options.onHookEvent) {
+      try {
+        options.onHookEvent({
+          hookName: "tool_result_persist",
+          event,
+          ctx,
+          handlerCount: hooks.length,
+          startTime,
+        });
+      } catch (err) {
+        logger?.error(`[hooks] onHookEvent callback failed: ${String(err)}`);
+      }
+    }
 
     let current = event.message;
 

@@ -446,6 +446,6 @@ export function loadMoltbotPlugins(options: PluginLoadOptions = {}): PluginRegis
     registryCache.set(cacheKey, registry);
   }
   setActivePluginRegistry(registry, cacheKey);
-  initializeGlobalHookRunner(registry);
+  initializeGlobalHookRunner(registry, cfg);
   return registry;
 }

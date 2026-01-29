@@ -87,6 +87,15 @@ export const InternalHooksSchema = z
   .strict()
   .optional();
 
+export const HookLoggingSchema = z
+  .object({
+    enabled: z.boolean().optional(),
+    maxEvents: z.number().int().positive().optional(),
+    path: z.string().optional(),
+  })
+  .strict()
+  .optional();
+
 export const HooksGmailSchema = z
   .object({
     account: z.string().optional(),

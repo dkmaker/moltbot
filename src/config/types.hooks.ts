@@ -110,6 +110,15 @@ export type InternalHooksConfig = {
   installs?: Record<string, HookInstallRecord>;
 };
 
+export type HookLoggingConfig = {
+  /** Enable plugin hook logging */
+  enabled?: boolean;
+  /** Maximum events to keep in log file (default: 1000) */
+  maxEvents?: number;
+  /** Log directory path (default: ~/.clawdbot/logs/) */
+  path?: string;
+};
+
 export type HooksConfig = {
   enabled?: boolean;
   path?: string;
@@ -121,4 +130,6 @@ export type HooksConfig = {
   gmail?: HooksGmailConfig;
   /** Internal agent event hooks */
   internal?: InternalHooksConfig;
+  /** Plugin hook logging configuration */
+  logging?: HookLoggingConfig;
 };

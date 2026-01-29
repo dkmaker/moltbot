@@ -7,7 +7,9 @@
 
 import { createSubsystemLogger } from "../logging/subsystem.js";
 import { createHookRunner, type HookRunner } from "./hooks.js";
+import { createPluginHookLogger } from "./hook-logger.js";
 import type { PluginRegistry } from "./registry.js";
+import type { MoltbotConfig } from "../config/config.js";
 
 const log = createSubsystemLogger("plugins");
 
@@ -18,8 +20,14 @@ let globalRegistry: PluginRegistry | null = null;
  * Initialize the global hook runner with a plugin registry.
  * Called once when plugins are loaded during gateway startup.
  */
-export function initializeGlobalHookRunner(registry: PluginRegistry): void {
+export function initializeGlobalHookRunner(registry: PluginRegistry, config?: MoltbotConfig): void {
   globalRegistry = registry;
+
+  // Check if plugin hook logging is enabled
+  const loggingEnabled = config?.hooks?.logging?.enabled ?? false;
+  const maxEvents = config?.hooks?.logging?.maxEvents ?? 1000;
+  const logPath = config?.hooks?.logging?.path;
+
   globalHookRunner = createHookRunner(registry, {
     logger: {
       debug: (msg) => log.debug(msg),
@@ -27,11 +35,17 @@ export function initializeGlobalHookRunner(registry: PluginRegistry): void {
       error: (msg) => log.error(msg),
     },
     catchErrors: true,
+    onHookEvent: loggingEnabled
+      ? createPluginHookLogger({ maxEvents, logDir: logPath })
+      : undefined,
   });
 
   const hookCount = registry.hooks.length;
   if (hookCount > 0) {
     log.info(`hook runner initialized with ${hookCount} registered hooks`);
+    if (loggingEnabled) {
+      log.info("plugin hook logging enabled");
+    }
   }
 }
 
