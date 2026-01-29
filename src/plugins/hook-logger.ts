@@ -12,6 +12,9 @@ const DEFAULT_MAX_EVENTS = 1000;
 const DEFAULT_LOG_DIR = path.join(os.homedir(), ".clawdbot", "logs");
 const LOG_FILE = "hooks-plugin.jsonl";
 
+// Write queue to prevent race conditions
+let writeQueue = Promise.resolve();
+
 /**
  * Safely serialize objects, handling circular references, functions, and other
  * non-serializable values.
@@ -90,8 +93,8 @@ export function createPluginHookLogger(options?: {
   const logPath = path.join(logDir, LOG_FILE);
 
   return (params) => {
-    // Run logging asynchronously without blocking hook execution
-    void (async () => {
+    // Queue write to prevent race conditions (multiple hooks firing at once)
+    writeQueue = writeQueue.then(async () => {
       try {
         // Ensure log directory exists
         await fs.mkdir(logDir, { recursive: true });
@@ -123,6 +126,6 @@ export function createPluginHookLogger(options?: {
           err instanceof Error ? err.message : String(err),
         );
       }
-    })();
+    });
   };
 }

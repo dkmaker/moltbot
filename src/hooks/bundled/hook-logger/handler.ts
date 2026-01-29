@@ -12,6 +12,9 @@ import type { HookHandler } from "../../hooks.js";
 
 const DEFAULT_MAX_EVENTS = 1000;
 
+// Write queue to prevent race conditions
+let writeQueue = Promise.resolve();
+
 /**
  * Safely serialize objects, handling circular references, functions, and other
  * non-serializable values.
@@ -77,46 +80,49 @@ async function writeLogEntries(logPath: string, entries: string[]): Promise<void
  * Main hook handler - logs all internal hook events
  */
 const hookLogger: HookHandler = async (event) => {
-  try {
-    // Create log directory
-    const logDir = path.join(os.homedir(), ".clawdbot", "logs");
-    await fs.mkdir(logDir, { recursive: true });
+  // Queue write to prevent race conditions (multiple hooks firing at once)
+  writeQueue = writeQueue.then(async () => {
+    try {
+      // Create log directory
+      const logDir = path.join(os.homedir(), ".clawdbot", "logs");
+      await fs.mkdir(logDir, { recursive: true });
 
-    const logPath = path.join(logDir, "hooks-internal.jsonl");
+      const logPath = path.join(logDir, "hooks-internal.jsonl");
 
-    // Read existing log entries
-    const existingLines = await readLogEntries(logPath);
+      // Read existing log entries
+      const existingLines = await readLogEntries(logPath);
 
-    // Create new log entry
-    const logEntry = {
-      timestamp: event.timestamp.toISOString(),
-      type: event.type,
-      action: event.action,
-      sessionKey: event.sessionKey,
-      context: safeSerialize(event.context),
-      messageCount: event.messages.length,
-    };
+      // Create new log entry
+      const logEntry = {
+        timestamp: event.timestamp.toISOString(),
+        type: event.type,
+        action: event.action,
+        sessionKey: event.sessionKey,
+        context: safeSerialize(event.context),
+        messageCount: event.messages.length,
+      };
 
-    // Append new entry
-    existingLines.push(JSON.stringify(logEntry));
+      // Append new entry
+      existingLines.push(JSON.stringify(logEntry));
 
-    // Get maxEvents from config (TODO: wire this up properly)
-    // For now, use default
-    const maxEvents = DEFAULT_MAX_EVENTS;
+      // Get maxEvents from config (TODO: wire this up properly)
+      // For now, use default
+      const maxEvents = DEFAULT_MAX_EVENTS;
 
-    // Rotate: keep only last N events
-    const rotatedLines =
-      existingLines.length > maxEvents ? existingLines.slice(-maxEvents) : existingLines;
+      // Rotate: keep only last N events
+      const rotatedLines =
+        existingLines.length > maxEvents ? existingLines.slice(-maxEvents) : existingLines;
 
-    // Write back to file
-    await writeLogEntries(logPath, rotatedLines);
-  } catch (err) {
-    // Log error but don't throw - hooks should fail gracefully
-    console.error(
-      "[hook-logger] Failed to log hook event:",
-      err instanceof Error ? err.message : String(err),
-    );
-  }
+      // Write back to file
+      await writeLogEntries(logPath, rotatedLines);
+    } catch (err) {
+      // Log error but don't throw - hooks should fail gracefully
+      console.error(
+        "[hook-logger] Failed to log hook event:",
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  });
 };
 
 export default hookLogger;
